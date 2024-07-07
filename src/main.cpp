@@ -10,7 +10,7 @@ Connections:
 - Motor 2:
   - AIN1: 7
   - AIN2: 8
-  - SLEEP: ? FIXME: connected to GND currently
+  - SLEEP: 12 FIXME: connected to GND currently on the board
   - BIN2: 10
   - BIN1: 11
 
@@ -24,8 +24,6 @@ Connections:
 
 #include "AutoSleep.h"
 
-
-
 // Smooth buttons and potentiometers, see the libraries for examples on how to
 // use them.
 #include <Bounce2.h>
@@ -35,16 +33,17 @@ Connections:
 Adafruit_USBD_MIDI usbMidi;
 MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usbMidi, MIDI);
 
-motor::DRV8833 motorDriver1(0,1,6,7,2);
+motor::DRV8833 motorDriver1(0, 1, 6, 7, 2);
+motor::DRV8833 motorDriver2(8, 9, 10, 11, 12);
 
 // Set up sleep functionality
 std::function<void()> enableSleepFunc = []() {
-  Serial.println("Setting sleep mode on motor 1");
+  Serial.println("Going to sleep...zzz....");
   motorDriver1.sleep();
 };
 
 std::function<void()> disableSleepFunc = []() {
-  Serial.println("Disabling sleep mode on motor 1");
+  Serial.println("Waking up!");
   motorDriver1.wake();
 };
 
@@ -54,17 +53,42 @@ AutoSleep autoSleep1(2000, enableSleepFunc, disableSleepFunc);
 void handle_midi_note_on(byte channel, byte note, byte velocity) {
   Serial.println("Got note on!");
   Serial.println(note);
+  Serial.println("Channel:");
+  Serial.println(channel);
 
   autoSleep1.disableSleep();
   autoSleep1.updateEventTime();
 
   motorDriver1.wake();
 
-  // Go forward
+  auto mappedVelocity = map(velocity, 0, 127, 0, 1023);
+
+  // TODO: Allow changing direction somehow
+  const auto direction = 1;
+  mappedVelocity *= direction;
+
   if (note == 60) {
-    // const auto mapped = map(velocity, 0, 127, 0, 1023);
-    // motorDriver1A.setSpeed(mapped);
-    motorDriver1.setSpeedA(501);
+    Serial.println("Setting speed A on motor 1:");
+    Serial.println(mappedVelocity);
+    motorDriver1.setSpeedA(mappedVelocity);
+  } else if (note == 61) {
+
+    Serial.println("Setting speed B on motor 1:");
+    Serial.println(mappedVelocity);
+
+    motorDriver1.setSpeedB(mappedVelocity);
+  } else if (note == 62) {
+
+    Serial.println("Setting speed A on motor 2:");
+    Serial.println(mappedVelocity);
+
+    motorDriver2.setSpeedA(mappedVelocity);
+  } else if (note == 63) {
+
+    Serial.println("Setting speed B on motor 2:");
+    Serial.println(mappedVelocity);
+
+    motorDriver2.setSpeedB(mappedVelocity);
   }
 }
 
@@ -73,16 +97,24 @@ void handle_midi_note_off(byte channel, byte note, byte velocity) {
   Serial.println("Got note off!");
   Serial.println(note);
 
-
   // Sleep timer
   autoSleep1.disableSleep();
   autoSleep1.updateEventTime();
   motorDriver1.wake();
 
-  // Go forward
+  // Stop motor
   if (note == 60) {
-    const auto mapped = map(velocity, 0, 127, 0, 1023);
-    motorDriver1.setSpeedA(0);
+    Serial.println("Stopping motor 1");
+    motorDriver1.stopA();
+  } else if (note == 61) {
+    Serial.println("Stopping motor 1");
+    motorDriver1.stopB();
+  } else if (note == 62) {
+    Serial.println("Stopping motor 2");
+    motorDriver2.stopA();
+  } else if (note == 63) {
+    Serial.println("Stopping motor 2");
+    motorDriver2.stopB();
   }
 }
 
@@ -91,7 +123,7 @@ void setup() {
   Serial.println("Hello World!");
 
   TinyUSBDevice.setManufacturerDescriptor("MadsKjeldgaard");
-  TinyUSBDevice.setProductDescriptor("Pico Blinkity Blinky");
+  TinyUSBDevice.setProductDescriptor("Midi2DCMotor");
 
   usbMidi.begin();
   MIDI.begin();
@@ -107,4 +139,7 @@ void setup() {
   autoSleep1.updateEventTime();
 }
 
-void loop() { MIDI.read(); }
+void loop() {
+  MIDI.read();
+  autoSleep1.checkSleep();
+}

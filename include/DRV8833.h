@@ -24,9 +24,13 @@ public:
       analogWrite(mIn2, abs(speed));
 
     } else {
-      digitalWrite(mIn1, LOW);
-      digitalWrite(mIn2, LOW);
+      stop();
     }
+  }
+
+  void stop() {
+    digitalWrite(mIn1, LOW);
+    digitalWrite(mIn2, LOW);
   }
 
 private:
@@ -49,6 +53,19 @@ public:
 
   void setSpeedB(int16_t speed) {
     mChannelB.setSpeed(speed);
+  }
+
+  void stopAll() {
+    mChannelA.stop();
+    mChannelB.stop();
+  }
+
+  void stopA () {
+    mChannelA.stop();
+  }
+
+  void stopB () {
+    mChannelB.stop();
   }
 
   void sleep() { digitalWrite(mSleep, LOW); }
