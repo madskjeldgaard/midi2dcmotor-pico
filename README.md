@@ -2,25 +2,15 @@
 
 # MIDI 2 DC Motor controller
 
-This firmware will turn a Raspberry Pi Pico with two DRV8833 controller boards into a USB Midi to DC Motor controller of sorts.
+![midi2dcmotor in action](midi2dcmotor.jpg) 
+
+This firmware will turn a Raspberry Pi Pico with two [DRV8833 motor controller boards](https://learn.adafruit.com/adafruit-drv8833-dc-stepper-motor-driver-breakout-board) into a USB Midi to DC Motor controller of sorts.
 
 It maps midi notes to one of the 4 currently available channels and uses the velocity of the notes to set the speeds.
 
 These midi notes are 60-63.
 
 It also features a small auto sleep function which will activate the DRV8833's sleep mode when idle.
-
-## Features
-
-- Platformio-based – easy to compile and upload, gets dependencies automatically
-- Has common libraries set up:
-  - Bounce2 for debouncing button presses
-  - ResponsiveAnalogRead for smoother readings of analog voltages / potentiometers
-  - Adafruit MIDI library
-  - TINYUSB for USB Midi
-- C++17, allowing a lot of modern C++ tricks.
-- VSCode tasks are included making building easy in VSCode and in NeoVim (using the Overseer plugin)
-- A Github Action which runs every time you push code to test if your firmware still compiles.
 
 ## Dependencies
 
