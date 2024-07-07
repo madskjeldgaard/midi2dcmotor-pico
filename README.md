@@ -1,10 +1,10 @@
 [![PlatformIO CI](https://github.com/madskjeldgaard/raspberry-pi-pico-usbmidi-platformio-template/actions/workflows/build.yml/badge.svg)](https://github.com/madskjeldgaard/raspberry-pi-pico-usbmidi-platformio-template/actions/workflows/build.yml)
 
-# A USB MIDI thing
+# MIDI 2 DC Motor
 
-A simple template for creating an Arduino-based project for the Raspberry Pi Pico using platformio.
+This is the code for a Raspberry Pi Pico project featuring two DRV8833 motor driver boards.
 
-It is pre-setup with everything needed to make a USB MIDI controller and can be easily modified for other purposes.
+It receives MIDI CC over USB and converts that to motor outputs.
 
 ## Features
 
