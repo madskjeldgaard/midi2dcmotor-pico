@@ -24,11 +24,6 @@ Connections:
 
 #include "AutoSleep.h"
 
-// Smooth buttons and potentiometers, see the libraries for examples on how to
-// use them.
-#include <Bounce2.h>
-#include <ResponsiveAnalogRead.h>
-
 // USB MIDI object
 Adafruit_USBD_MIDI usbMidi;
 MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usbMidi, MIDI);
