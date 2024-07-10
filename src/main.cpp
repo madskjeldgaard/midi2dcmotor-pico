@@ -1,35 +1,45 @@
 /*
-
-Connections:
-- Motor 1:
-  - AIN1: 0
-  - AIN2: 1
-  - SLEEP: 2
-  - BIN2: 7
-  - BIN1: 6
-- Motor 2:
-  - AIN1: 7
-  - AIN2: 8
-  - SLEEP: 12 FIXME: connected to GND currently on the board
-  - BIN2: 10
-  - BIN1: 11
-
-
-*/
-
+ *
+ * This sketch sets up a Pico as a USB MIDI device that controls up to 4 DC
+ * motors using the DRV8833 motor driver.
+ *
+ * It has autosleep functionality that puts the motor drivers to sleep after a
+ * period of inactivity (to save power and silence annoying sounds in some
+ * motors).
+ *
+ * Additionally it makes it possible to control the speed and direction of the
+ * motors using MIDI notes.
+ *
+ * The DRV8833 driver is optimized for small motors, see comments below.
+ *
+ */
+#include "AutoSleep.h"
 #include "DRV8833.h"
+
 #include <Adafruit_TinyUSB.h>
 #include <Arduino.h>
 #include <MIDI.h>
 
-#include "AutoSleep.h"
+// These are optimizations to increase performance of small DC motors.
+// Adjust to your liking, see this article for additional info:
+// https://learn.adafruit.com/improve-brushed-dc-motor-performance/pwm-frequency
+constexpr auto PWM_FREQ = 100; // HZ
+const auto DECAY_MODE = motor::DecayMode::Slow;
 
 // USB MIDI object
 Adafruit_USBD_MIDI usbMidi;
 MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usbMidi, MIDI);
 
-motor::DRV8833 motorDriver1(0, 1, 6, 7, 2);
-motor::DRV8833 motorDriver2(8, 9, 10, 11, 12);
+// Pins of the motor drivers
+constexpr auto motor1_A1 = 0, motor1_A2 = 1, motor1_sleep = 2, motor1_B2 = 7,
+               motor1_B1 = 6;
+motor::DRV8833 motorDriver1(motor1_A1, motor1_A2, motor1_B1, motor1_B2,
+                            motor1_sleep, DECAY_MODE);
+
+constexpr auto motor2_A1 = 8, motor2_A2 = 9, motor2_sleep = 12, motor2_B2 = 10,
+               motor2_B1 = 11;
+motor::DRV8833 motorDriver2(motor2_A1, motor2_A2, motor2_B1, motor2_B2,
+                            motor2_sleep, DECAY_MODE);
 
 // Set up sleep functionality
 std::function<void()> enableSleepFunc = []() {
@@ -42,7 +52,15 @@ std::function<void()> disableSleepFunc = []() {
   motorDriver1.wake();
 };
 
-AutoSleep autoSleep1(2000, enableSleepFunc, disableSleepFunc);
+constexpr auto sleepTresholdMS = 5000;
+AutoSleep autoSleep1(sleepTresholdMS, enableSleepFunc, disableSleepFunc);
+
+void eventHappened() {
+  autoSleep1.disableSleep();
+  autoSleep1.updateEventTime();
+  motorDriver1.wake();
+  motorDriver2.wake();
+}
 
 // Example of handling midi input to the device
 void handle_midi_note_on(byte channel, byte note, byte velocity) {
@@ -51,39 +69,38 @@ void handle_midi_note_on(byte channel, byte note, byte velocity) {
   Serial.println("Channel:");
   Serial.println(channel);
 
-  autoSleep1.disableSleep();
-  autoSleep1.updateEventTime();
-
-  motorDriver1.wake();
-
+  eventHappened();
   auto mappedVelocity = map(velocity, 0, 127, 0, 1023);
 
-  // TODO: Allow changing direction somehow
-  const auto direction = 1;
-  mappedVelocity *= direction;
-
-  if (note == 60) {
-    Serial.println("Setting speed A on motor 1:");
-    Serial.println(mappedVelocity);
-    motorDriver1.setSpeedA(mappedVelocity);
+  // Midi notes 60-63 are used to turn on the motors in forward mode
+  // 60: Motor 1 A
+  // 61: Motor 1 B
+  // 62: Motor 2 A
+  // 63: Motor 2 B
+  //
+  // The velocity of the note is used to set the speed of the motor
+  //
+  // Midi notes 48-51 are used to turn on the motors in reverse mode
+  // 48: Motor 1 A
+  // 49: Motor 1 B
+  // 50: Motor 2 A
+  // 51: Motor 2 B
+  if (note == 48) {
+    motorDriver1.getBridgeA().setSpeed(mappedVelocity);
+  } else if (note == 49) {
+    motorDriver1.getBridgeB().setSpeed(mappedVelocity);
+  } else if (note == 50) {
+    motorDriver2.getBridgeA().setSpeed(mappedVelocity);
+  } else if (note == 51) {
+    motorDriver1.getBridgeB().setSpeed(mappedVelocity);
+  } else if (note == 60) {
+    motorDriver1.getBridgeA().setSpeed(mappedVelocity);
   } else if (note == 61) {
-
-    Serial.println("Setting speed B on motor 1:");
-    Serial.println(mappedVelocity);
-
-    motorDriver1.setSpeedB(mappedVelocity);
+    motorDriver1.getBridgeB().setSpeed(mappedVelocity);
   } else if (note == 62) {
-
-    Serial.println("Setting speed A on motor 2:");
-    Serial.println(mappedVelocity);
-
-    motorDriver2.setSpeedA(mappedVelocity);
+    motorDriver2.getBridgeA().setSpeed(mappedVelocity);
   } else if (note == 63) {
-
-    Serial.println("Setting speed B on motor 2:");
-    Serial.println(mappedVelocity);
-
-    motorDriver2.setSpeedB(mappedVelocity);
+    motorDriver1.getBridgeB().setSpeed(mappedVelocity);
   }
 }
 
@@ -92,30 +109,33 @@ void handle_midi_note_off(byte channel, byte note, byte velocity) {
   Serial.println("Got note off!");
   Serial.println(note);
 
-  // Sleep timer
-  autoSleep1.disableSleep();
-  autoSleep1.updateEventTime();
-  motorDriver1.wake();
+  eventHappened();
 
   // Stop motor
-  if (note == 60) {
-    Serial.println("Stopping motor 1");
-    motorDriver1.stopA();
+  if (note == 48) {
+    motorDriver1.getBridgeA().stop();
+  } else if (note == 49) {
+    motorDriver1.getBridgeB().stop();
+  } else if (note == 50) {
+    motorDriver2.getBridgeA().stop();
+  } else if (note == 51) {
+    motorDriver2.getBridgeB().stop();
+  } else if (note == 60) {
+    motorDriver1.getBridgeA().stop();
   } else if (note == 61) {
-    Serial.println("Stopping motor 1");
-    motorDriver1.stopB();
+    motorDriver1.getBridgeB().stop();
   } else if (note == 62) {
-    Serial.println("Stopping motor 2");
-    motorDriver2.stopA();
+    motorDriver2.getBridgeA().stop();
   } else if (note == 63) {
-    Serial.println("Stopping motor 2");
-    motorDriver2.stopB();
+    motorDriver2.getBridgeB().stop();
   }
 }
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Hello World!");
+
+  analogWriteFreq(PWM_FREQ);
 
   TinyUSBDevice.setManufacturerDescriptor("MadsKjeldgaard");
   TinyUSBDevice.setProductDescriptor("Midi2DCMotor");
