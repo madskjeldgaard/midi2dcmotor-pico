@@ -8,7 +8,7 @@ This firmware will turn a Raspberry Pi Pico with two [DRV8833 motor controller b
 
 It maps midi notes to one of the 4 currently available channels and uses the velocity of the notes to set the speeds.
 
-It also features a small auto sleep function which will activate the DRV8833's sleep mode when idle.
+It also features a small auto sleep function which will activate the [DRV8833](https://www.ti.com/lit/ds/symlink/drv8833.pdf)'s sleep mode when idle.
 
 ## Midi mapping
 
@@ -35,6 +35,24 @@ In all note on messages, the velocity is mapped to the speed of the motor.
 | note off 62  | motor 2 a | stop |
 | note on 63   | motor 2 b | forward |
 | note off 63  | motor 2 b | stop |
+
+## Serial Interface
+
+The serial interface allows you to control the motors via serial commands. The general format of a command is `set <motor> <property> <value>`. Here's a breakdown of the command structure:
+
+| Command Part | Description | Valid Values |
+| ------------ | ----------- | ------------ |
+| `<motor>`    | Specifies which motor to control. | `1a`, `1b`, `2a`, `2b` |
+| `<property>` | Specifies which property of the motor to set. | `speed`, `dir`, `stop`, `sleep`, `decay` |
+| `<value>`    | Specifies the value to set the property to. | Depends on the property. For `speed`, it's a float between 0 and 1. For `dir`, it's either `forward` or `reverse`. For `stop` and `sleep`, it's not used. For `decay`, it's either `fast` or `slow`. |
+
+Here are some examples of valid commands:
+
+- `set 1a speed 0.5`: Sets the speed of motor A on motor driver 1 to 0.5.
+- `set 2b dir forward`: Sets the direction of motor B on motor driver 2 to forward.
+- `set 1a stop`: Stops motor A on motor driver 1.
+- `set 2b sleep`: Puts motor B on motor driver 2 to sleep.
+- `set 1a decay fast`: Sets the decay mode of motor A on motor driver 1 to fast.
 
 ## Dependencies
 
